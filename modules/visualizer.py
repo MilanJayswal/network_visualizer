@@ -1,4 +1,5 @@
 import json
+import html
 import streamlit.components.v1 as components
 
 
@@ -6,7 +7,7 @@ def render_network(nodes, edges, height_px=760):
     nodes_json = json.dumps(nodes)
     edges_json = json.dumps(edges)
 
-    html = f"""
+    html_code = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -23,7 +24,7 @@ def render_network(nodes, edges, height_px=760):
 
             #layout {{
                 display: grid;
-                grid-template-columns: 78% 22%;
+                grid-template-columns: 76% 24%;
                 height: {height_px}px;
                 width: 100%;
             }}
@@ -39,32 +40,65 @@ def render_network(nodes, edges, height_px=760):
                 border: 1px solid #ddd;
                 border-left: none;
                 padding: 12px;
-                overflow: auto;
+                overflow-y: auto;
                 background: #ffffff;
                 font-size: 13px;
             }}
 
-            .meta-title {{
+            .title {{
+                font-size: 17px;
                 font-weight: bold;
-                font-size: 16px;
-                margin-bottom: 10px;
+                margin-bottom: 12px;
+                color: #111;
             }}
 
-            .meta-block {{
-                margin-bottom: 10px;
-                padding-bottom: 8px;
-                border-bottom: 1px solid #eee;
+            .section {{
+                margin-bottom: 14px;
+                padding: 10px;
+                border: 1px solid #e5e5e5;
+                border-radius: 8px;
+                background: #fafafa;
+            }}
+
+            .section-title {{
+                font-weight: bold;
+                margin-bottom: 6px;
+                color: #222;
+            }}
+
+            .item {{
+                margin-bottom: 4px;
             }}
 
             .key {{
                 font-weight: bold;
-                color: #333;
             }}
 
-            pre {{
-                white-space: pre-wrap;
-                word-wrap: break-word;
+            .chip {{
+                display: inline-block;
+                padding: 3px 7px;
+                margin: 2px;
+                border-radius: 12px;
+                background: #eef2f7;
                 font-size: 12px;
+            }}
+
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12px;
+                margin-top: 6px;
+            }}
+
+            th, td {{
+                border: 1px solid #ddd;
+                padding: 5px;
+                text-align: left;
+                vertical-align: top;
+            }}
+
+            th {{
+                background: #f2f2f2;
             }}
         </style>
     </head>
@@ -72,8 +106,9 @@ def render_network(nodes, edges, height_px=760):
     <body>
         <div id="layout">
             <div id="network"></div>
+
             <div id="metadata">
-                <div class="meta-title">Metadata Panel</div>
+                <div class="title">Metadata</div>
                 <div>Click a node or edge.</div>
             </div>
         </div>
@@ -87,7 +122,7 @@ def render_network(nodes, edges, height_px=760):
                 label: n.label,
                 title: "NodeID: " + n.id,
                 shape: "dot",
-                size: 12,
+                size: 13,
                 metadata: n.metadata
             }})));
 
@@ -96,7 +131,7 @@ def render_network(nodes, edges, height_px=760):
                 from: e.from,
                 to: e.to,
                 label: e.label,
-                arrows: e.arrows,
+                arrows: "to",
                 metadata: e.metadata,
                 smooth: {{
                     enabled: true,
@@ -120,7 +155,7 @@ def render_network(nodes, edges, height_px=760):
                 physics: {{
                     enabled: true,
                     stabilization: {{
-                        iterations: 200
+                        iterations: 250
                     }},
                     barnesHut: {{
                         gravitationalConstant: -30000,
@@ -132,8 +167,7 @@ def render_network(nodes, edges, height_px=760):
                 nodes: {{
                     font: {{
                         size: 12
-                    }},
-                    borderWidth: 1
+                    }}
                 }},
                 edges: {{
                     font: {{
@@ -150,25 +184,108 @@ def render_network(nodes, edges, height_px=760):
                 network.setOptions({{ physics: false }});
             }});
 
-            function renderObject(obj) {{
-                let html = "";
+            function chips(values) {{
+                if (!values || values.length === 0) return "<div>None</div>";
 
-                for (const key in obj) {{
-                    const value = obj[key];
+                return values.map(v => "<span class='chip'>" + v + "</span>").join("");
+            }}
 
-                    html += "<div class='meta-block'>";
-                    html += "<div class='key'>" + key + "</div>";
+            function renderNode(meta) {{
+                return `
+                    <div class="title">Node Metadata</div>
 
-                    if (Array.isArray(value) || typeof value === "object") {{
-                        html += "<pre>" + JSON.stringify(value, null, 2) + "</pre>";
-                    }} else {{
-                        html += "<div>" + value + "</div>";
-                    }}
+                    <div class="section">
+                        <div class="section-title">Node</div>
+                        <div class="item"><span class="key">NodeID:</span> ${{meta.NodeID}}</div>
+                    </div>
 
-                    html += "</div>";
+                    <div class="section">
+                        <div class="section-title">KEGG IDs</div>
+                        ${{chips(meta.KEGG_IDs)}}
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Pathways containing this node</div>
+                        ${{chips(meta.Pathways)}}
+                    </div>
+                `;
+            }}
+
+            function renderEdge(meta) {{
+                let relationRows = "";
+
+                meta.Relations.forEach(r => {{
+                    relationRows += `
+                        <tr>
+                            <td>${{r.RelationID}}</td>
+                            <td>${{r.Interaction}}</td>
+                            <td>${{r.Source}}</td>
+                            <td>${{r.Target}}</td>
+                        </tr>
+                    `;
+                }});
+
+                let pathwayRows = "";
+
+                if (meta.Pathways) {{
+                    meta.Pathways.forEach(p => {{
+                        pathwayRows += `
+                            <tr>
+                                <td>${{p.Pathway_ID}}</td>
+                                <td>${{p.Pathway_Name}}</td>
+                            </tr>
+                        `;
+                    }});
                 }}
 
-                return html;
+                return `
+                    <div class="title">Edge / Cluster Metadata</div>
+
+                    <div class="section">
+                        <div class="section-title">Cluster</div>
+                        <div class="item"><span class="key">ClusterID:</span> ${{meta.ClusterID}}</div>
+                        <div class="item"><span class="key">Source Node:</span> ${{meta.Source_NodeID}}</div>
+                        <div class="item"><span class="key">Target Node:</span> ${{meta.Target_NodeID}}</div>
+                        <div class="item"><span class="key">Relation count:</span> ${{meta.RelationIDs.length}}</div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Relation IDs</div>
+                        ${{chips(meta.RelationIDs)}}
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Relations in this cluster</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>RelationID</th>
+                                    <th>Interaction</th>
+                                    <th>Source KEGG</th>
+                                    <th>Target KEGG</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${{relationRows}}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Pathways containing this edge</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Pathway ID</th>
+                                    <th>Pathway Name</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${{pathwayRows}}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
             }}
 
             network.on("click", function(params) {{
@@ -177,25 +294,18 @@ def render_network(nodes, edges, height_px=760):
                 if (params.nodes.length > 0) {{
                     const nodeId = params.nodes[0];
                     const node = nodes.get(nodeId);
-
-                    panel.innerHTML =
-                        "<div class='meta-title'>Node Metadata</div>" +
-                        renderObject(node.metadata);
+                    panel.innerHTML = renderNode(node.metadata);
                 }}
 
                 else if (params.edges.length > 0) {{
                     const edgeId = params.edges[0];
                     const edge = edges.get(edgeId);
-
-                    panel.innerHTML =
-                        "<div class='meta-title'>Edge / Cluster Metadata</div>" +
-                        renderObject(edge.metadata);
+                    panel.innerHTML = renderEdge(edge.metadata);
                 }}
 
                 else {{
                     panel.innerHTML =
-                        "<div class='meta-title'>Metadata Panel</div>" +
-                        "<div>Click a node or edge.</div>";
+                        "<div class='title'>Metadata</div><div>Click a node or edge.</div>";
                 }}
             }});
         </script>
@@ -204,7 +314,7 @@ def render_network(nodes, edges, height_px=760):
     """
 
     components.html(
-        html,
+        html_code,
         height=height_px,
         scrolling=False
     )
