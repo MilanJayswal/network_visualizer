@@ -1,5 +1,4 @@
 import json
-import html
 import streamlit.components.v1 as components
 
 
@@ -24,7 +23,7 @@ def render_network(nodes, edges, height_px=760):
 
             #layout {{
                 display: grid;
-                grid-template-columns: 76% 24%;
+                grid-template-columns: 74% 26%;
                 height: {height_px}px;
                 width: 100%;
             }}
@@ -190,7 +189,33 @@ def render_network(nodes, edges, height_px=760):
                 return values.map(v => "<span class='chip'>" + v + "</span>").join("");
             }}
 
+            function safe(value) {{
+                if (value === null || value === undefined) return "";
+                return String(value);
+            }}
+
             function renderNode(meta) {{
+                let mappedRows = "";
+
+                if (meta.Mapped_IDs) {{
+                    meta.Mapped_IDs.forEach(m => {{
+                        mappedRows += `
+                            <tr>
+                                <td>${{safe(m.KEGG_ID)}}</td>
+                                <td>${{safe(m.Names)}}</td>
+                                <td>${{safe(m.EC_Number)}}</td>
+                                <td>${{safe(m.Ortholog_IDs)}}</td>
+                                <td>${{safe(m.HSA_IDs)}}</td>
+                                <td>${{safe(m.Compound_IDs)}}</td>
+                                <td>${{safe(m.HSA_Symbols)}}</td>
+                                <td>${{safe(m.Compound_Symbols)}}</td>
+                                <td>${{safe(m.HSA_Biological_Names)}}</td>
+                                <td>${{safe(m.Compound_Biological_Names)}}</td>
+                            </tr>
+                        `;
+                    }});
+                }}
+
                 return `
                     <div class="title">Node Metadata</div>
 
@@ -200,8 +225,31 @@ def render_network(nodes, edges, height_px=760):
                     </div>
 
                     <div class="section">
-                        <div class="section-title">KEGG IDs</div>
+                        <div class="section-title">KEGG IDs in this node</div>
                         ${{chips(meta.KEGG_IDs)}}
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Mapped biological annotation</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>KEGG ID</th>
+                                    <th>Name</th>
+                                    <th>EC</th>
+                                    <th>Ortholog IDs</th>
+                                    <th>HSA IDs</th>
+                                    <th>Compound IDs</th>
+                                    <th>HSA Symbol</th>
+                                    <th>Compound Symbol</th>
+                                    <th>HSA Biological Name</th>
+                                    <th>Compound Biological Name</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${{mappedRows}}
+                            </tbody>
+                        </table>
                     </div>
 
                     <div class="section">
@@ -217,10 +265,10 @@ def render_network(nodes, edges, height_px=760):
                 meta.Relations.forEach(r => {{
                     relationRows += `
                         <tr>
-                            <td>${{r.RelationID}}</td>
-                            <td>${{r.Interaction}}</td>
-                            <td>${{r.Source}}</td>
-                            <td>${{r.Target}}</td>
+                            <td>${{safe(r.RelationID)}}</td>
+                            <td>${{safe(r.Interaction)}}</td>
+                            <td>${{safe(r.Source)}}</td>
+                            <td>${{safe(r.Target)}}</td>
                         </tr>
                     `;
                 }});
@@ -231,8 +279,8 @@ def render_network(nodes, edges, height_px=760):
                     meta.Pathways.forEach(p => {{
                         pathwayRows += `
                             <tr>
-                                <td>${{p.Pathway_ID}}</td>
-                                <td>${{p.Pathway_Name}}</td>
+                                <td>${{safe(p.Pathway_ID)}}</td>
+                                <td>${{safe(p.Pathway_Name)}}</td>
                             </tr>
                         `;
                     }});
@@ -243,15 +291,20 @@ def render_network(nodes, edges, height_px=760):
 
                     <div class="section">
                         <div class="section-title">Cluster</div>
-                        <div class="item"><span class="key">ClusterID:</span> ${{meta.ClusterID}}</div>
-                        <div class="item"><span class="key">Source Node:</span> ${{meta.Source_NodeID}}</div>
-                        <div class="item"><span class="key">Target Node:</span> ${{meta.Target_NodeID}}</div>
+                        <div class="item"><span class="key">ClusterID:</span> ${{safe(meta.ClusterID)}}</div>
+                        <div class="item"><span class="key">Source Node:</span> ${{safe(meta.Source_NodeID)}}</div>
+                        <div class="item"><span class="key">Target Node:</span> ${{safe(meta.Target_NodeID)}}</div>
                         <div class="item"><span class="key">Relation count:</span> ${{meta.RelationIDs.length}}</div>
                     </div>
 
                     <div class="section">
                         <div class="section-title">Relation IDs</div>
                         ${{chips(meta.RelationIDs)}}
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Interaction types</div>
+                        ${{chips(meta.Interactions)}}
                     </div>
 
                     <div class="section">
@@ -316,5 +369,5 @@ def render_network(nodes, edges, height_px=760):
     components.html(
         html_code,
         height=height_px,
-        scrolling=False
+        scrolling=False,
     )
